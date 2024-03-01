@@ -8,7 +8,6 @@ update:
 
 pip:
 	pip install git+https://github.com/mikgroup/sigpy.git@main
-	git clone git@github.com:mlazaric/Chebyshev.git
 	pip install opencv-python
 	pip install nibabel
 	pip install tk
