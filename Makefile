@@ -13,6 +13,7 @@ pip:
 	pip install nibabel
 	pip install tk
 	pip install antspyx
+	git clone git@github.com:MattWill660/ReadPhilips.git
 
 clean:
 	rm -rf __pycache__
