@@ -25,6 +25,14 @@ Run the following commands in sequence to run the experiments.
 3. `conda activate spatio-temporal-recon`
 4. `make pip`
 
+## Additional libraries.
+
+Contact Joseph.Plummer@cchmc.org for access to additional libraries, including `readphilips` and `segmentation`.
+
+## Data.
+
+Contact Joseph.Plummer@cchmc.org for sample data. It has not been approved for sharing publicly yet.
+
 **Troubleshooting**:
 
 1. This repository was tested on an NVIDIA GPU. If running on a system without
