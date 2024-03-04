@@ -1,6 +1,12 @@
 # Data
 /data/
 
+# readphilips folder
+/readphilips/
+
+# AI segmentation
+/segmentation/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
