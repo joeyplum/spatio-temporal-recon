@@ -377,8 +377,8 @@ if __name__ == '__main__':
     # View convergence
     count = 0
     total_iter = sup_iter * outer_iter * iner_iter
-    # img_convergence = np.zeros(
-    #     (total_iter, int(recon_resolution), int(recon_resolution), int(recon_resolution)), dtype=float)
+    img_convergence = np.zeros(
+        (total_iter, int(recon_resolution), int(recon_resolution), int(recon_resolution)), dtype=float)
 
     for k in range(sup_iter):
         for i in range(outer_iter):
@@ -403,8 +403,8 @@ if __name__ == '__main__':
                     break
                 res_list.append(res_norm)
 
-                # img_convergence[count, ...] = np.abs(
-                #     np.squeeze(qt))[0, :, :, :]  # First resp phase only
+                img_convergence[count, ...] = np.abs(
+                    np.squeeze(qt))[0, :, :, :]  # First resp phase only
                 count += 1
 
             z0 = np.complex64(LR(1, Ms*qt + u0))
@@ -506,10 +506,10 @@ if __name__ == '__main__':
     # Multiply matrices together
     aff = translation_affine.dot(rotation_affine.dot(scaling_affine))
 
-    # ni_img = nib.Nifti1Image(
-    #     abs(np.moveaxis(img_convergence, 0, -1)), affine=aff)
-    # nib.save(ni_img, fname + '/results/img_convergence_' + str(nphase) +
-    #          '_bin_' + str(int(recon_resolution)) + '_resolution')
+    ni_img = nib.Nifti1Image(
+        abs(np.moveaxis(img_convergence, 0, -1)), affine=aff)
+    nib.save(ni_img, fname + '/results/img_convergence_' + str(nphase) +
+             '_bin_' + str(int(recon_resolution)) + '_resolution')
 
     try:
         nifti_filename = str(nphase) + '_bin_' + str(field_of_view) + \
@@ -520,6 +520,8 @@ if __name__ == '__main__':
 
     ni_img = nib.Nifti1Image(abs(np.moveaxis(qt, 0, -1)), affine=aff)
     nib.save(ni_img, fname + '/results/img_mocolor_' + nifti_filename)
+    np.save(fname + '/results/img_mocolor_' + str(nphase) + '_bin_' +
+            str(int(recon_resolution)) + '_recon_matrix_size.npy', qt)
 
     # nphase = 6
     # jacobian determinant & specific ventilation
