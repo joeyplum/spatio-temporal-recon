@@ -122,34 +122,8 @@ def LowRankRecon(use_dcf=1, gamma=0, res_scale=None, scan_resolution=100, recon_
         recon_resolution), int(recon_resolution))
 
     print('Density compensation...')
-    if use_dcf == 0:
-        dcf = np.ones((nphase, npe, nfe))
-        print("DCF will not be used to precondition the objective function.")
-    elif use_dcf == 2:
-        dcf = np.ones((nphase, npe, nfe))
-        print(
-            "A new DCF will be calculated based on the coordinate trajectories and image shape. ")
-        for i in range(nphase):
-            dcf[i, ...] = sp.to_device(mr.pipe_menon_dcf(traj[i, ...], img_shape=tshape,
-                                                         device=sp.Device(device)), -1)
-        dcf /= np.max(dcf)
-        np.save(fname + "bdcf_pipemenon.npy", dcf)
-        dcf = dcf**0.5
-
-    else:
-        print("The provided DCF is being used to precondition the objective function.")
 
     print('Calibration...')
-    ksp = np.reshape(np.transpose(data, (1, 0, 2, 3)),
-                     (nCoil, nphase*npe, nfe))
-    coord = np.reshape(traj, (nphase*npe, nfe, 3))
-
-    if nCoil == 1:
-        S = sp.linop.Multiply(tshape, np.ones((1,)+tshape))  # ONES
-        print("Sensitivity map of all ones assumed.")
-    else:
-        # TODO:
-        mps = 1
 
 
 LowRankRecon()

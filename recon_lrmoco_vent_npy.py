@@ -198,9 +198,13 @@ if __name__ == '__main__':
     try:
         dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf.npy')))
         print("Philips DCF used.")
-    except:
-        dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf_pipemenon.npy')))
-        print("Pipe-Menon DCF used.")
+    except FileNotFoundError:
+        try:
+            dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf_pipemenon.npy')))
+            print("Pipe-Menon DCF used.")
+        except FileNotFoundError:
+            dcf = np.ones((data.shape[0], data.shape[2], data.shape[3]))
+            print("WARNING: no DCF was loaded. ")
 
     nf_scale = res_scale
     nf_arr = np.sqrt(np.sum(traj[0, 0, :, :]**2, axis=1))
@@ -231,13 +235,24 @@ if __name__ == '__main__':
     print('Number of frequency encodes (after trimming): ' + str(nfe))
 
     # calibration
-    print('Calibration...')
+    print('Sensitivity map...')
     ksp = np.reshape(np.transpose(data, (1, 0, 2, 3)),
                      (nCoil, nphase*npe, nfe))
     dcf2 = np.reshape(dcf**2, (nphase*npe, nfe))
     dcf_jsense = dcf2  # Must use DCF for older SIGPY JSENSE as it solves a Cartesian problem :(
+
+    # Default
+    # mps = ext.jsens_calib(ksp, coord, dcf2, device=sp.Device(
+    #     device), ishape=tshape, mps_ker_width=12, ksp_calib_width=24)
+    # Modified by JWP 20230828
+    coord = np.reshape(traj, (nphase*npe, nfe, 3))
+    mps = ext.jsens_calib(ksp[..., :nf_e], coord[:, :nf_e, :], dcf_jsense[..., :nf_e], device=sp.Device(
+        device), ishape=tshape, mps_ker_width=8, ksp_calib_width=16)
+    del (dcf_jsense, dcf2)
+    S = sp.linop.Multiply(tshape, mps)
+    # S = sp.linop.Multiply(tshape, np.ones((1,)+tshape)) # ONES
+
     if use_dcf == 0:
-        dcf2 = np.ones_like(dcf2)
         dcf = np.ones_like(dcf)
         print("DCF will not be used to precondition the objective function.")
     elif use_dcf == 2:
@@ -253,34 +268,22 @@ if __name__ == '__main__':
         np.save(fname + "bdcf_pipemenon.npy", dcf)
         dcf = dcf**0.5
     elif use_dcf == 3:
-        # TODO: kspace conditioner
+
         dcf = np.zeros_like(dcf)
         print("Attempting k-space preconditoner calculation, as per Ong, et. al.,...")
-        ones = np.ones_like((2,)+tshape)
-        ones = ones / len(ones)**0.5
         for i in range(nphase):
-            dcf[i, ...] = sp.to_device(mr.kspace_precond(
-                np.ones(((1,)+tshape)),
+            # Force a single channel precond for now (at cost of speed)
+            ones = np.ones_like(mps)
+            ones /= len(mps)**0.5
+            p = sp.to_device(mr.kspace_precond(
+                ones,
                 coord=sp.to_device(traj[i, ...], device),
                 device=sp.Device(device), lamda=lambda_lr), -1)
+            # Use only first channel for preconditioner, all will be same in this case
+            dcf[i, ...] = p[0, ...]
         dcf = dcf**0.5
     else:
         print("The provided DCF is being used to precondition the objective function.")
-
-    coord = np.reshape(traj, (nphase*npe, nfe, 3))
-
-    if nCoil == 1:
-        S = sp.linop.Multiply(tshape, np.ones((1,)+tshape))  # ONES
-        print("Sensitivity map of all ones assumed.")
-    else:
-        # Default
-        # mps = ext.jsens_calib(ksp, coord, dcf2, device=sp.Device(
-        #     device), ishape=tshape, mps_ker_width=12, ksp_calib_width=24)
-        # Modified by JWP 20230828
-        mps = ext.jsens_calib(ksp[..., :nf_e], coord[:, :nf_e, :], dcf_jsense[..., :nf_e], device=sp.Device(
-            device), ishape=tshape, mps_ker_width=8, ksp_calib_width=16)
-        del (dcf_jsense, dcf2)
-        S = sp.linop.Multiply(tshape, mps)
 
     # Estimate T2* decay
     print("Estimating decay matrix...")
