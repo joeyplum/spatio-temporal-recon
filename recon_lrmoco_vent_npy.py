@@ -252,7 +252,16 @@ if __name__ == '__main__':
         dcf /= np.max(dcf)
         np.save(fname + "bdcf_pipemenon.npy", dcf)
         dcf = dcf**0.5
-
+    elif use_dcf == 3:
+        # TODO: kspace conditioner
+        dcf = np.zeros_like(dcf)
+        print("Attempting k-space preconditoner calculation, as per Ong, et. al.,...")
+        ones = np.ones_like((2,)+tshape)
+        ones = ones / len(ones)**0.5
+        for i in range(nphase):
+            dcf[i, ...] = mr.kspace_precond(
+                np.ones(((1,)+tshape)), coord=traj[i, ...], device=sp.Device(-1), lamda=lambda_lr)
+        dcf = dcf**0.5
     else:
         print("The provided DCF is being used to precondition the objective function.")
 
@@ -272,6 +281,7 @@ if __name__ == '__main__':
         S = sp.linop.Multiply(tshape, mps)
 
     # Estimate T2* decay
+    print("Estimating decay matrix...")
     t2_star = 1.2  # ms
     readout = 1.2*res_scale  # ms
     dwell_time = readout/nfe
@@ -279,6 +289,7 @@ if __name__ == '__main__':
 
     for i in range(nfe):
         relaxation[i] = np.exp(-(i*dwell_time)/t2_star)
+
     k = np.reshape(relaxation, [1, 1, nfe])
 
     # registration
@@ -314,12 +325,28 @@ if __name__ == '__main__':
     # low rank
     print('Low rank prep...')
     PFTSs = []
+    k0 = np.zeros((nphase, npe))
     for i in range(nphase):
         FTs = NFTs((nCoil,)+tshape, traj[i, ...], device=sp.Device(device))
-        W = sp.linop.Multiply((nCoil, npe, nfe,), dcf[i, :, :])
-        K = sp.linop.Multiply(W.oshape, k**gamma)
 
-        FTSs = W*K*FTs*S
+        # # RF decay
+        # if nCoil == 1:  # Usually only true for Xe
+        #     print("WARNING: rescaling data by k0...")
+        #     k = np.zeros((1, npe, nfe))
+        #     for j in range(npe):
+        #         k0[i, j] = abs(data[i, 0, j, 0])
+        #         k[0, j, :] = k0[i, j] * relaxation
+        #         # Normalize data by k0, remember to undo at end
+        #         data[i, 0, j, :] /= k0[i, j]
+
+        if use_dcf == 0:
+            K = sp.linop.Multiply((nCoil, npe, nfe,), k**gamma)
+            FTSs = K*FTs*S
+        else:
+            W = sp.linop.Multiply((nCoil, npe, nfe,), dcf[i, :, :])
+            K = sp.linop.Multiply(W.oshape, k**gamma)
+            FTSs = W*K*FTs*S
+            del (W)
         PFTSs.append(FTSs)
     PFTSs = Diags(PFTSs, oshape=(nphase, nCoil, npe, nfe,),
                   ishape=(nphase,)+tshape)
@@ -350,6 +377,12 @@ if __name__ == '__main__':
     print('Preconditioner calculation...')
     tmp = FTSs.H*FTSs*np.complex64(np.ones(tshape))
     L = np.mean(np.abs(tmp))
+    print("Preconditioner: L, using MoCoLoR: " + str(L))
+    L = sp.app.MaxEig(FTSs.H*FTSs, dtype=np.complex64,
+                      device=sp.Device(-1)).run() * 1.01
+    # data /= np.linalg.norm(data)
+    print("Preconditioner: L, using MaxEig: " + str(L))
+
     # TODO condition number calc
     tmp = np.zeros(tshape)
     tmp[0, 0, 0] = 1.0
@@ -372,7 +405,7 @@ if __name__ == '__main__':
     b0 = 1/L*PFTSs.H*wdata
     res_list = []
 
-    del (K, S, W)
+    del (K, S)
 
     # View convergence
     count = 0
@@ -393,7 +426,8 @@ if __name__ == '__main__':
                 tic = time.perf_counter()
                 # CG_step.update()
                 GD_step.update()
-                # qt = qt - 0.2*(1/L*PFTSs.H*(PFTSs*qt - wdata) + Ms.H*(Ms*qt - z0 + u0))
+                # qt = qt - 0.2*(1/L*PFTSs.H*(PFTSs*qt - wdata) +
+                #                Ms.H*(Ms*qt - z0 + u0))
                 # res_norm = CG_step.resid/np.linalg.norm(qt)*CG_step.alpha
                 res_norm = GD_step.resid/np.linalg.norm(qt)*GD_step.alpha
                 toc = time.perf_counter()
@@ -456,6 +490,10 @@ if __name__ == '__main__':
         # np.save(os.path.join(fname, 'mocolor_vent.npy'), qt)
         # np.save(os.path.join(fname, 'mocolor_vent_residual.npy'),
         #         np.asarray(res_list))
+
+    # if nCoil == 1:
+    #     for i in range(nphase):
+    #         qt[i, ...] *= k0[i, 0]
 
     # qt = np.load(os.path.join(fname, 'mocolor_vent.npy'))
 
