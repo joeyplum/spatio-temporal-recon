@@ -259,8 +259,10 @@ if __name__ == '__main__':
         ones = np.ones_like((2,)+tshape)
         ones = ones / len(ones)**0.5
         for i in range(nphase):
-            dcf[i, ...] = mr.kspace_precond(
-                np.ones(((1,)+tshape)), coord=traj[i, ...], device=sp.Device(-1), lamda=lambda_lr)
+            dcf[i, ...] = sp.to_device(mr.kspace_precond(
+                np.ones(((1,)+tshape)),
+                coord=sp.to_device(traj[i, ...], device),
+                device=sp.Device(device), lamda=lambda_lr), -1)
         dcf = dcf**0.5
     else:
         print("The provided DCF is being used to precondition the objective function.")
@@ -329,15 +331,15 @@ if __name__ == '__main__':
     for i in range(nphase):
         FTs = NFTs((nCoil,)+tshape, traj[i, ...], device=sp.Device(device))
 
-        # # RF decay
-        # if nCoil == 1:  # Usually only true for Xe
-        #     print("WARNING: rescaling data by k0...")
-        #     k = np.zeros((1, npe, nfe))
-        #     for j in range(npe):
-        #         k0[i, j] = abs(data[i, 0, j, 0])
-        #         k[0, j, :] = k0[i, j] * relaxation
-        #         # Normalize data by k0, remember to undo at end
-        #         data[i, 0, j, :] /= k0[i, j]
+        # RF decay
+        if nCoil == 1:  # Usually only true for Xe
+            k = np.zeros((1, npe, nfe))
+            for j in range(npe):
+                k0[i, j] = abs(data[i, 0, j, 0])
+                k[0, j, :] = k0[i, j] * relaxation  # BUG - JWP
+                # Normalize data by k0, remember to undo at end
+                # print("WARNING: rescaling data by k0...")
+                # data[i, 0, j, :] /= k0[i, j]
 
         if use_dcf == 0:
             K = sp.linop.Multiply((nCoil, npe, nfe,), k**gamma)
@@ -491,6 +493,7 @@ if __name__ == '__main__':
         # np.save(os.path.join(fname, 'mocolor_vent_residual.npy'),
         #         np.asarray(res_list))
 
+    # Revert the k-space normalization
     # if nCoil == 1:
     #     for i in range(nphase):
     #         qt[i, ...] *= k0[i, 0]
