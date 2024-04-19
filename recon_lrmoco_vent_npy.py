@@ -248,6 +248,9 @@ if __name__ == '__main__':
     coord = np.reshape(traj, (nphase*npe, nfe, 3))
     mps = ext.jsens_calib(ksp[..., :nf_e], coord[:, :nf_e, :], dcf_jsense[..., :nf_e], device=sp.Device(
         device), ishape=tshape, mps_ker_width=8, ksp_calib_width=16)
+    # TODO: try without dcf
+    # mps = mr.app.JsenseRecon(y=ksp[..., :nf_e], coord=coord[:, :nf_e, :], device=sp.Device(
+    #     device), img_shape=tshape, mps_ker_width=14, ksp_calib_width=24, lamda=1e-4).run()
     del (dcf_jsense, dcf2)
     S = sp.linop.Multiply(tshape, mps)
     # S = sp.linop.Multiply(tshape, np.ones((1,)+tshape)) # ONES
@@ -268,34 +271,35 @@ if __name__ == '__main__':
         np.save(fname + "bdcf_pipemenon.npy", dcf)
         dcf = dcf**0.5
     elif use_dcf == 3:
-
         dcf = np.zeros_like(dcf)
-        print("Attempting k-space preconditoner calculation, as per Ong, et. al.,...")
+        print("Attempting single-channel k-space preconditoner calculation, as per Ong, et. al.,...")
         for i in range(nphase):
-            # Force a single channel precond for now (at cost of speed)
+            # Approximate using a single channel precond for now (at cost of speed)
             ones = np.ones_like(mps)
             ones /= len(mps)**0.5
             p = sp.to_device(mr.kspace_precond(
                 ones,
                 coord=sp.to_device(traj[i, ...], device),
-                device=sp.Device(device), lamda=lambda_lr), -1)
+                device=sp.Device(device), lamda=1e-3), -1)
             # Use only first channel for preconditioner, all will be same in this case
             dcf[i, ...] = p[0, ...]
+            del (p)
+        dcf = dcf**0.5
+    elif use_dcf == 4:
+        dcf = np.zeros_like(data)
+        print("Attempting multi-channel k-space preconditoner calculation, as per Ong, et. al.,...")
+        for i in range(nphase):
+            # mps_tmp = mr.app.JsenseRecon(y=data[i, ..., :nf_e], coord=traj[i, :, :nf_e, :], device=sp.Device(
+            #     device), img_shape=tshape, mps_ker_width=14, ksp_calib_width=24, lamda=1e-4).run()
+            p = sp.to_device(mr.kspace_precond(
+                mps,
+                coord=sp.to_device(traj[i, ...], device),
+                device=sp.Device(device), lamda=1e-3), -1)
+            dcf[i, ...] = p  # Use all channels here
+            del (p)
         dcf = dcf**0.5
     else:
         print("The provided DCF is being used to precondition the objective function.")
-
-    # Estimate T2* decay
-    print("Estimating decay matrix...")
-    t2_star = 1.2  # ms
-    readout = 1.2*res_scale  # ms
-    dwell_time = readout/nfe
-    relaxation = np.zeros((nfe,))
-
-    for i in range(nfe):
-        relaxation[i] = np.exp(-(i*dwell_time)/t2_star)
-
-    k = np.reshape(relaxation, [1, 1, nfe])
 
     # registration
     print('Motion Field Initialization...')
@@ -334,24 +338,37 @@ if __name__ == '__main__':
     for i in range(nphase):
         FTs = NFTs((nCoil,)+tshape, traj[i, ...], device=sp.Device(device))
 
-        # RF decay
-        if nCoil == 1:  # Usually only true for Xe
-            k = np.zeros((1, npe, nfe))
-            for j in range(npe):
-                k0[i, j] = abs(data[i, 0, j, 0])
-                k[0, j, :] = k0[i, j] * relaxation  # BUG - JWP
-                # Normalize data by k0, remember to undo at end
-                # print("WARNING: rescaling data by k0...")
-                # data[i, 0, j, :] /= k0[i, j]
-
-        if use_dcf == 0:
-            K = sp.linop.Multiply((nCoil, npe, nfe,), k**gamma)
-            FTSs = K*FTs*S
+        if use_dcf == 4:
+            W = sp.linop.Multiply((nCoil, npe, nfe,), dcf[i, :, :, :])
         else:
+            # TODO test hypothesis that it is faster to have multiply.Linops with reduced point dimensions
             W = sp.linop.Multiply((nCoil, npe, nfe,), dcf[i, :, :])
+
+        if gamma == 0:
+            FTSs = W*FTs*S
+        else:
+            # Estimate T2* decay
+            t2_star = 1.2  # ms
+            readout = 1.2*res_scale  # ms
+            dwell_time = readout/nfe
+            relaxation = np.zeros((nfe,))
+            for i in range(nfe):
+                relaxation[i] = np.exp(-(i*dwell_time)/t2_star)
+
+            # RF decay
+            if nCoil == 1:  # Usually only true for Xe
+                k = np.zeros((1, npe, nfe))
+                for j in range(npe):
+                    k0[i, j] = abs(data[i, 0, j, 0])
+                    k[0, j, :] = k0[i, j] * relaxation  # BUG - JWP
+                    # Normalize data by k0, remember to undo at end
+                    # print("WARNING: rescaling data by k0...")
+                    # data[i, 0, j, :] /= k0[i, j]
+
             K = sp.linop.Multiply(W.oshape, k**gamma)
             FTSs = W*K*FTs*S
-            del (W)
+            del (K)
+
         PFTSs.append(FTSs)
     PFTSs = Diags(PFTSs, oshape=(nphase, nCoil, npe, nfe,),
                   ishape=(nphase,)+tshape)
@@ -395,7 +412,11 @@ if __name__ == '__main__':
     tmp = FTSs.H*FTSs*np.complex64(tmp)
     tmp = np.fft.ifftshift(tmp)
     # TODO condition number calc
-    wdata = data*dcf[:, np.newaxis, :, :]
+    if use_dcf == 4:
+        wdata = data*dcf
+    else:
+        # TODO: make dcf 4D in all scenarios for robustness
+        wdata = data*dcf[:, np.newaxis, :, :]
     del (dcf, data, tmp, traj)  # clear from memory to help speed up
 
     # ADMM
@@ -410,13 +431,13 @@ if __name__ == '__main__':
     b0 = 1/L*PFTSs.H*wdata
     res_list = []
 
-    del (K, S)
+    del (S)
 
     # View convergence
     count = 0
     total_iter = sup_iter * outer_iter * iner_iter
-    img_convergence = np.zeros(
-        (total_iter, int(recon_resolution), int(recon_resolution), int(recon_resolution)), dtype=float)
+    # img_convergence = np.zeros(
+    #     (total_iter, int(recon_resolution), int(recon_resolution), int(recon_resolution)), dtype=float)
 
     for k in range(sup_iter):
         for i in range(outer_iter):
@@ -442,8 +463,8 @@ if __name__ == '__main__':
                     break
                 res_list.append(res_norm)
 
-                img_convergence[count, ...] = np.abs(
-                    np.squeeze(qt))[0, :, :, :]  # First resp phase only
+                # img_convergence[count, ...] = np.abs(
+                #     np.squeeze(qt))[0, :, :, :]  # First resp phase only
                 count += 1
 
             z0 = np.complex64(LR(1, Ms*qt + u0))
@@ -550,10 +571,10 @@ if __name__ == '__main__':
     # Multiply matrices together
     aff = translation_affine.dot(rotation_affine.dot(scaling_affine))
 
-    ni_img = nib.Nifti1Image(
-        abs(np.moveaxis(img_convergence, 0, -1)), affine=aff)
-    nib.save(ni_img, fname + '/results/img_convergence_' + str(nphase) +
-             '_bin_' + str(int(recon_resolution)) + '_resolution')
+    # ni_img = nib.Nifti1Image(
+    #     abs(np.moveaxis(img_convergence, 0, -1)), affine=aff)
+    # nib.save(ni_img, fname + '/results/img_convergence_' + str(nphase) +
+    #          '_bin_' + str(int(recon_resolution)) + '_resolution')
 
     try:
         nifti_filename = str(nphase) + '_bin_' + str(field_of_view) + \
