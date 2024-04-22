@@ -152,21 +152,22 @@ if __name__ == '__main__':
             rls.compute()
             # scan_resolution = int(rls.header.get(
             # 'sin').get('scan_resolutions')[0][0])
-            scan_resolution = 300 # Force
+            # scan_resolution = 300 # Adult
             # scan_resolution = 200 # neonatal
             print("Automated scan_resolution = " + str(scan_resolution))
             slice_thickness = float(rls.header.get('sin').get('slice_thickness')[0][0])
-            # field_of_view = int(slice_thickness * scan_resolution)
-            field_of_view = 480 # force
+            field_of_view = int(slice_thickness * scan_resolution)
+            # field_of_view = 480 # Adult
             # field_of_view = 200 # neonatal
             TR = float(rls.header.get('sin').get('repetition_times')[0][0]) 
             TE = float(rls.header.get('sin').get('echo_times')[0][0]) 
             flip_angle_applied = float(rls.header.get('sin').get('flip_angles')[0][0]) 
 
             print("WARNING: forcefully overwriting recon_resolution:")
-            recon_voxel_size = 3 # mm
+            recon_voxel_size = field_of_view // recon_resolution
+            # recon_voxel_size = 3 # mm
             # recon_voxel_size = 1.2 # mm # neonatal
-            recon_resolution = int(field_of_view / recon_voxel_size)
+            # recon_resolution = field_of_view / recon_voxel_size
             print("recon_resolution set to: " + str(recon_voxel_size))
 
             try:
