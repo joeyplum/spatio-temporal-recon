@@ -41,7 +41,7 @@ Contact Joseph.Plummer@cchmc.org for sample data. It has not been approved for s
    - `nccl`
    - `cupy`
 2. Additionally, if not using an NVIDIA GPU, please set `devnum = -1` for each
-   of the `sim_*.py` files.
+   of the `*.py` files.
 
 
 **Troubleshooting**:
@@ -51,7 +51,7 @@ Contact Joseph.Plummer@cchmc.org for sample data. It has not been approved for s
 
 ## Running the scripts. 
 
-I personally run all scripts using the `Run Current File in Interactive Window' tool in VScode.
+I run the shell script `run_recons.sh` to run the binning and reconstruction algorithms. Settings for each algorithm can be applied in this script.
 
 
 ## Uninstall.
