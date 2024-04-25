@@ -342,6 +342,8 @@ class HilbertBinning:
         for i in range(self.n_bins+1):
             axs[0, 0].scatter(np.arange(self.signal.size)[
                               self.bin_hot[:, i]], self.signal[self.bin_hot[:, i]], color=color[i], s=0.5, alpha=1)
+            # axs[0, 0].scatter(np.arange(self.signal.size)[
+            #                   self.bin_hot[:, i]], self.signal[self.bin_hot[:, i]], color='k', s=0.5, alpha=1)
             axs[1, 0].scatter(self.phase[self.bin_hot[:, i]],
                               self.signal[self.bin_hot[:, i]], color=color[i], s=0.5, alpha=1)
 

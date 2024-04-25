@@ -9,8 +9,8 @@ import copy
 import csv
 import matplotlib
 import matplotlib.pyplot as plt
-plt.style.use("dark_background")
-# plt.style.use("default")
+# plt.style.use("dark_background")
+plt.style.use("default")
 matplotlib.use('TkAgg')
 
 try:
