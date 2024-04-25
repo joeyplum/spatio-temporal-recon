@@ -310,7 +310,7 @@ if __name__ == '__main__':
                 device), ishape=tshape, mps_ker_width=8, ksp_calib_width=16)
         elif jsense == 2:
             # New
-            mps = mr.app.JsenseRecon_UPDATED(y=ksp[..., :nf_e], coord=coord[:, :nf_e, :], device=sp.Device(
+            mps = mr.app.JsenseRecon(y=ksp[..., :nf_e], coord=coord[:, :nf_e, :], device=sp.Device(
                 device), img_shape=tshape, mps_ker_width=14, ksp_calib_width=24, lamda=1e-4, 
                                                 max_inner_iter=10, max_iter=10).run()
             
