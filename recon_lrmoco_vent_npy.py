@@ -210,16 +210,17 @@ if __name__ == '__main__':
     data = np.load(os.path.join(fname, 'bksp.npy'))
     traj = np.real(np.load(os.path.join(fname, 'bcoord.npy')))
     try:
-        dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf.npy')))
+        dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf_pipemenon.npy')))
         print("Philips DCF used.")
     except:
-        dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf_pipemenon.npy')))
-        print("Pipe-Menon DCF used.")
+        dcf = np.zeros((data.shape[0], data.shape[2], data.shape[3]), dtype=complex)
+        print("No dcf located.")
 
     nf_scale = res_scale
     nf_arr = np.sqrt(np.sum(traj[0, 0, :, :]**2, axis=1))
     nf_e = np.sum(nf_arr < np.max(nf_arr)*nf_scale)
-    scale = (scan_resolution, scan_resolution, scan_resolution)  # Added JWP
+    scale = (scan_resolution, scan_resolution, 80)  # Added JWP
+    print("FORCEFULLY OVERWRITTEN FOVz")
     # scale = fov_scale
     traj[..., 0] = traj[..., 0]*scale[0]
     traj[..., 1] = traj[..., 1]*scale[1]
@@ -236,7 +237,7 @@ if __name__ == '__main__':
         traj[..., 1])-np.min(traj[..., 1])), int(np.max(traj[..., 2])-np.min(traj[..., 2])))
     # Or use manual input settings
     tshape = (int(recon_resolution), int(
-        recon_resolution), int(recon_resolution))
+        recon_resolution), 80)
 
     print('Number of phases used in this reconstruction: ' + str(nphase))
     print('Number of coils: ' + str(nCoil))
@@ -296,25 +297,16 @@ if __name__ == '__main__':
     try:
         print("Calculating sensitivity map from raw (unbinned) data...")
         ksp = np.load(fname + "ksp.npy")
-        ksp = np.reshape(ksp, (np.shape(ksp)[0], np.shape(ksp)[
-        1]*np.shape(ksp)[2], np.shape(ksp)[3]))[..., :nf_e]
         print("ksp.shape = " + str(np.shape(ksp)))
-        coord = np.load(fname + "coord.npy")*scale[0]
-        coord = coord.reshape(
-        (np.shape(coord)[0]*np.shape(coord)[1], np.shape(coord)[2], np.shape(coord)[3]))[:, :nf_e, :]
-        dcf_jsense = np.load(fname + "dcf.npy")
-        dcf_jsense = dcf_jsense.reshape((np.shape(dcf_jsense)[0] * np.shape(dcf_jsense)[1], np.shape(dcf_jsense)[2]))[..., :nfe]
-        if jsense == 1:
-            # Default
-            mps = ext.jsens_calib(ksp[..., :nf_e], coord[:, :nf_e, :], dcf_jsense[..., :nf_e], device=sp.Device(
-                device), ishape=tshape, mps_ker_width=8, ksp_calib_width=16)
-        elif jsense == 2:
-            # New
-            mps = mr.app.JsenseRecon(y=ksp[..., :nf_e], coord=coord[:, :nf_e, :], device=sp.Device(
-                device), img_shape=tshape, mps_ker_width=14, ksp_calib_width=24, lamda=1e-4, 
+        coord = np.load(fname + "coord.npy")
+        coord[..., 0] = coord[..., 0]*scale[0]
+        coord[..., 1] = coord[..., 1]*scale[1]
+        coord[..., 2] = coord[..., 2]*scale[2] 
+        mps = mr.app.JsenseRecon(y=ksp[..., :nf_e], coord=coord[:, :nf_e, :], device=sp.Device(
+                device), img_shape=tshape, mps_ker_width=18, ksp_calib_width=24, lamda=1e-4, 
                                                 max_inner_iter=10, max_iter=10).run()
-            
-        del(dcf_jsense, ksp, coord)
+    
+        del(ksp, coord)
         S = sp.linop.Multiply(tshape, mps)
         print("Success.")
     except:

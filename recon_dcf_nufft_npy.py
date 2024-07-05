@@ -162,11 +162,11 @@ print("WARNING: res_scale has been overridden. res_scale == " + str(res_scale))
 data = np.load(os.path.join(fname, 'bksp.npy'))
 traj = np.real(np.load(os.path.join(fname, 'bcoord.npy')))
 try:
-    dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf.npy')))
+    dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf_pipemenon.npy')))
     print("Philips DCF used.")
 except:
-    dcf = np.sqrt(np.load(os.path.join(fname, 'bdcf_pipemenon.npy')))
-    print("Pipe-Menon DCF used.")
+    dcf = np.zeros((data.shape[0], data.shape[2], data.shape[3]))
+    print("No dcf located.")
 
 nf_scale = res_scale
 nf_arr = np.sqrt(np.sum(traj[0, 0, :, :]**2, axis=1))

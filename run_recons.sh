@@ -4,23 +4,23 @@
 PYTHON_EXECUTABLE=python
 
 # Function to run the binning_quantile.py script with given arguments
-run_binning_quantile() {
-    $PYTHON_EXECUTABLE binning_hilbert_dynamic.py --fname /storage/Joey/MoCoLoR/data/floret-803H-043/ --nbins 12 --plot 1 --nprojections 12000 --reorder 2 
-}
+# run_binning_quantile() {
+#     $PYTHON_EXECUTABLE binning_hilbert_dynamic.py --fname /storage/Joey/MoCoLoR/data/floret-803H-043/ --nbins 12 --plot 1 --nprojections 12000 --reorder 2 
+# }
 
 
 # Function to run the recon_mocolor_npy.py script with given arguments
 run_recon_mocolor() {
-    $PYTHON_EXECUTABLE recon_lrmoco_vent_npy.py /storage/Joey/MoCoLoR/data/floret-803H-043/ --vent_flag 0 --rho 1 --method 'cg' --gamma 1 --jsense 2 --use_dcf 3 --lambda_lr 0.0075 --recon_res 117 --scan_res 220 --res_scale 0.75 --iner_iter 5 --outer_iter 3 --init_iter 10
+    $PYTHON_EXECUTABLE recon_lrmoco_vent_npy.py /home/plummerjw/fastaccessdata/20240702-healthy-volunteer/ --vent_flag 0 --rho 1 --method 'cg' --gamma 0 --jsense 2 --use_dcf 3 --lambda_lr 0.0075 --recon_res 160 --scan_res 160 --res_scale 0.75 --iner_iter 5 --outer_iter 3 --init_iter 10 --device 3
 }
 
 # Function to run the recon_xdgrasp_npy.py script with given arguments
 run_recon_nufft() {
-    $PYTHON_EXECUTABLE recon_dcf_nufft_npy.py /storage/Joey/MoCoLoR/data/floret-803H-043/ --vent_flag 0 --recon_res 117 --scan_res 220
+    $PYTHON_EXECUTABLE recon_dcf_nufft_npy.py /home/plummerjw/fastaccessdata/20240702-healthy-volunteer/ --vent_flag 0 --recon_res 128 --scan_res 128 --device 3
 }
 
 echo "Running binning_quantile.py ..."
-run_binning_quantile
+# run_binning_quantile
 echo "Finished binning_quantile.py"
 
 echo "Running recon_dcf_nufft_npy.py ..."

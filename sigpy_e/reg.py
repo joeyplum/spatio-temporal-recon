@@ -117,12 +117,47 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
 
     tmp_dir = 'tmp{}_'.format(np.random.randint(0, 1e4))
 
-    reg_dict = ants.registration(fixed, moving, type_of_transform='SyNOnly',
-                                 syn_metric='demons', syn_sampling=4,
-                                 grad_step=0.1, flow_sigma=5, total_sigma=3,
-                                 reg_iterations=(40, 20, 10),
-                                 verbose=False, outprefix=tmp_dir,
-                                 w='[0.1,1]')
+    # default
+    registration_params =   {'type_of_transform':'SyNOnly',
+                            'syn_metric':'demons', 
+                            'syn_sampling':4,
+                            'grad_step':0.1,
+                            'flow_sigma':5, 
+                            'total_sigma':3,
+                            'reg_iterations':(40, 20, 10),
+                            'verbose':False, 
+                            'outprefix':tmp_dir,
+                            'w':[0.1,1]
+                                 }
+
+    # custom
+    registration_params = {
+            'type_of_transform': 'SyNAggro',
+            'reg_iterations': (70, 50, 40),  # Increased iterations
+            'syn_metric': 'CC',  # Cross-correlation metric
+            'syn_metric_weight': 1,
+            'syn_metric_radius': 4,
+            'syn_sampling': 4,  # Increased sampling rate
+            'grad_step': 1.0,  # Increased gradient step
+            'flow_sigma': 1.5,
+            'total_sigma': 0,
+            # 'verbose': True,
+            'winsorize_lower_quantile': 0.005,  # Winsorize lower quantile
+            'winsorize_upper_quantile': 0.995,  # Winsorize upper quantile
+            'histogram_matching': True,  # Histogram matching
+            'regularization': 'bspline',  # B-spline regularization
+            'regularization_param': (4, 40, 0.2),  # B-spline parameters
+            'shrink_factors': [6, 4, 2, 1],  # Shrink factors
+            'smoothing_sigmas': [3, 2, 1, 0],  # Smoothing sigmas
+            'synaggro_param': (2, 0.8, 1)  # SyNAggro parameters
+        }
+    
+    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)
+                                 
+                                 
+                                
+    
+
     # -s -f -l not matched
     M_field = nibabel.load(reg_dict['fwdtransforms'][0])
     iM_field = nibabel.load(reg_dict['invtransforms'][-1])
