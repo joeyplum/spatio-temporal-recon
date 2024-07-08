@@ -112,8 +112,8 @@ def ANTsReg4(Is, ref=0):
 
 def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]):
 
-    fixed = ants.from_numpy(Im)
-    moving = ants.from_numpy(If)
+    fixed = ants.from_numpy(If) # TODO: check, are these the wrong way round??
+    moving = ants.from_numpy(Im)
 
     tmp_dir = 'tmp{}_'.format(np.random.randint(0, 1e4))
 
@@ -152,10 +152,8 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
             'synaggro_param': (2, 0.8, 1)  # SyNAggro parameters
         }
     
-    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)
-                                 
-                                 
-                                
+    # TODO: try registering the inverse or log scaled images
+    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)              
     
 
     # -s -f -l not matched
@@ -186,31 +184,71 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
 
 def ANTsJac(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]):
     # to antsimage
-    fixed = ants.from_numpy(Im)
-    moving = ants.from_numpy(If)
+    fixed = ants.from_numpy(If)
+    moving = ants.from_numpy(Im)
 
     tmp_dir = 'tmp{}_'.format(np.random.randint(0, 1e4))
-    # SyN registration
-    reg_dict = ants.registration(fixed, moving, type_of_transform='SyNOnly',
-                                 syn_metric='demons', syn_sampling=4,
-                                 grad_step=0.1, flow_sigma=5, total_sigma=3,
-                                 reg_iterations=(40, 20, 10),
-                                 verbose=False, outprefix=tmp_dir,
-                                 w='[0.1,1]')
+
+    # default
+    # registration_params =   {'type_of_transform':'SyNOnly',
+    #                         'syn_metric':'demons', 
+    #                         'syn_sampling':4,
+    #                         'grad_step':0.1,
+    #                         'flow_sigma':5, 
+    #                         'total_sigma':3,
+    #                         'reg_iterations':(40, 20, 10),
+    #                         'verbose':False, 
+    #                         'outprefix':tmp_dir,
+    #                         'w':[0.1,1]
+    #                              }
+
+    # custom
+    registration_params = {
+            'type_of_transform': 'SyNAggro',
+            'reg_iterations': (70, 50, 70),  # Increased iterations
+            'syn_metric': 'CC',  # Cross-correlation metric
+            'syn_metric_weight': 1,
+            'syn_metric_radius': 4,
+            'syn_sampling': 4,  # Increased sampling rate
+            'grad_step': 1.0,  # Increased gradient step
+            'flow_sigma': 1.5,
+            'total_sigma': 0,
+            # 'verbose': True,
+            'winsorize_lower_quantile': 0.005,  # Winsorize lower quantile
+            'winsorize_upper_quantile': 0.995,  # Winsorize upper quantile
+            'histogram_matching': True,  # Histogram matching
+            'regularization': 'bspline',  # B-spline regularization
+            'regularization_param': (4, 40, 0.2),  # B-spline parameters
+            'shrink_factors': [6, 4, 2, 1],  # Shrink factors
+            'smoothing_sigmas': [3, 2, 1, 0],  # Smoothing sigmas
+            'synaggro_param': (2, 0.8, 1)  # SyNAggro parameters
+        }
+    
+    # TODO: try registering the inverse or log scaled images
+    # fixed_i = ants.from_numpy(Im)
+    # moving_i = ants.from_numpy(If)
+    # reg_dict = ants.registration(fixed_i, moving_i, outprefix=tmp_dir, **registration_params)
+    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)
+
+
 
     # Jacobian
+    # TODO: try registering the inverse or log scaled images
     jac_ants = ants.create_jacobian_determinant_image(
         fixed, reg_dict['invtransforms'][-1])
+    # jac_ants = ants.create_jacobian_determinant_image(
+    #     fixed_i, reg_dict['invtransforms'][-1])
     jac = jac_ants.numpy()
 
     # calculate specific ventilation
     reg_ants = reg_dict['warpedfixout']
     reg = reg_ants.numpy()
 
-    reg = ndimage.filters.gaussian_filter(
-        reg, (3, 3, 3), mode='reflect', truncate=1)
-    If = ndimage.filters.gaussian_filter(
-        If, (3, 3, 3), mode='reflect', truncate=1)
+    # TODO: decide if this reduces resolution
+    # reg = ndimage.filters.gaussian_filter(
+    #     reg, (2, 2, 2), mode='reflect', truncate=1)
+    # If = ndimage.filters.gaussian_filter(
+    #     If, (2, 2, 2), mode='reflect', truncate=1)
 
     sv = (If - reg) / (reg + np.finfo(float).eps)
 

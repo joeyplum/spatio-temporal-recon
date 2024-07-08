@@ -219,7 +219,8 @@ if __name__ == '__main__':
     nf_scale = res_scale
     nf_arr = np.sqrt(np.sum(traj[0, 0, :, :]**2, axis=1))
     nf_e = np.sum(nf_arr < np.max(nf_arr)*nf_scale)
-    scale = (scan_resolution, scan_resolution, 80)  # Added JWP
+    # ANISOTROPIC
+    scale = (scan_resolution, scan_resolution, 80)  
     print("FORCEFULLY OVERWRITTEN FOVz")
     # scale = fov_scale
     traj[..., 0] = traj[..., 0]*scale[0]

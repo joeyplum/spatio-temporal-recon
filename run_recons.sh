@@ -11,7 +11,7 @@ PYTHON_EXECUTABLE=python
 
 # Function to run the recon_mocolor_npy.py script with given arguments
 run_recon_mocolor() {
-    $PYTHON_EXECUTABLE recon_lrmoco_vent_npy.py /home/plummerjw/fastaccessdata/20240702-healthy-volunteer/ --vent_flag 0 --rho 1 --method 'cg' --gamma 0 --jsense 2 --use_dcf 3 --lambda_lr 0.0075 --recon_res 160 --scan_res 160 --res_scale 0.75 --iner_iter 5 --outer_iter 3 --init_iter 10 --device 3
+    $PYTHON_EXECUTABLE recon_lrmoco_vent_npy.py /home/plummerjw/fastaccessdata/20240702-healthy-volunteer/ --vent_flag 1 --rho 1 --method 'cg' --gamma 0 --jsense 2 --use_dcf 3 --lambda_lr 0.01 --recon_res 160 --scan_res 160 --res_scale 0.75 --iner_iter 5 --outer_iter 3 --init_iter 10 --device 3 --n_ref 2
 }
 
 # Function to run the recon_xdgrasp_npy.py script with given arguments
