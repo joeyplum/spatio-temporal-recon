@@ -9,6 +9,7 @@ import scipy.ndimage as ndimage
 from scipy.io import loadmat
 from scipy import linalg
 import ants
+import matplotlib.pyplot as plt
 
 __all__ = ['interp_op', 'interp', 'ANTsReg', 'ANTsAff', 'interp_affine_op']
 
@@ -153,18 +154,26 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
         }
     
     # TODO: try registering the inverse or log scaled images
-    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)              
-    
+    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)     
 
     # -s -f -l not matched
+    # Original (i.e. if If = Im, and Im = If) -- this was how the original code was
     M_field = nibabel.load(reg_dict['fwdtransforms'][0])
     iM_field = nibabel.load(reg_dict['invtransforms'][-1])
+    # Testing? (i.e. if If = If, and Im = Im)
+    # M_field = nibabel.load(reg_dict['invtransforms'][-1])
+    # iM_field = nibabel.load(reg_dict['fwdtransforms'][0])
 
+    # Flip the z direction (this is required, and can be verified by matching with Optical Flow)
     Mt = -M_field.get_fdata()
+    print(f'Shape of Mt field: {Mt.shape}')
     iMt = -iM_field.get_fdata()
     Mt[..., :2] = -Mt[..., :2]
     iMt[..., :2] = -iMt[..., :2]
+
+    # Squeeze and rescale
     Mt = np.squeeze(Mt)
+    print(f'Shape of Mt field after squeezing: {Mt.shape}')
     iMt = np.squeeze(iMt)
     Mt = M_scale(Mt, If.shape, 1/reg_level[-1])
     iMt = M_scale(iMt, If.shape, 1/reg_level[-1])
@@ -241,16 +250,16 @@ def ANTsJac(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
     jac = jac_ants.numpy()
 
     # calculate specific ventilation
-    reg_ants = reg_dict['warpedfixout']
+    reg_ants = reg_dict['warpedmovout'] # Caution, change this to 'warpedfixout' if switching Im and If
     reg = reg_ants.numpy()
 
-    # TODO: decide if this reduces resolution
+    # TODO: optimize this if resolution of sv/jacs is too high
     # reg = ndimage.filters.gaussian_filter(
     #     reg, (2, 2, 2), mode='reflect', truncate=1)
     # If = ndimage.filters.gaussian_filter(
     #     If, (2, 2, 2), mode='reflect', truncate=1)
 
-    sv = (If - reg) / (reg + np.finfo(float).eps)
+    sv = (If - reg) / (reg + np.finfo(float).eps) # Note, reg and If were switched from the original code as If and Im were switched as function inputs
 
     # Get a list of all the file paths that ends with .txt from in specified directory
     fileList = glob.glob(tmp_dir + '*')
