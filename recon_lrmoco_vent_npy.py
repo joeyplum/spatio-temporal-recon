@@ -27,15 +27,6 @@ import time
 
 import matplotlib.pyplot as plt
 
-try:
-    from ReadPhilips import readphilips as rp
-    from ReadPhilips.readphilips.file_io import io
-    import csv
-    automate_FOV = True
-except:
-    print("Could not load ReadPhilips script.")
-    automate_FOV = False
-
 # Usage
 # python recon_lrmoco_vent_npy.py data/floret-740H-053/ --lambda_lr 0.05 --vent_flag 1 --recon_res 220 --scan_res 220 --mr_cflag 1
 
@@ -54,10 +45,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--res_scale', type=float, default=1,
                         help='scale of resolution, full res == 1')
-    parser.add_argument('--scan_res', type=float, default=300,
-                        help='scan matrix size')
-    parser.add_argument('--recon_res', type=float, default=160,
-                        help='recon matrix size')
 
     parser.add_argument('--fov_x', type=float, default=1,
                         help='scale of FOV x, full res == 1')
@@ -87,13 +74,14 @@ if __name__ == '__main__':
                         help='Num of outer iterations.')
     parser.add_argument('--sup_iter', type=int, default=3,
                         help='Num of superior iterations.')
-    parser.add_argument('--method', type=str,
+    parser.add_argument('--method', type=str, default='gm',
                         help='Iterative method for inner loop (cg or gm, default = gm).')
 
     parser.add_argument('--device', type=int, default=0,
-                        help='Computing device.')
-    parser.add_argument('fname', type=str, default='gm',
+                        help='Computing device.')   
+    parser.add_argument('fname', type=str, 
                         help='Prefix of raw data and output(_mocolor).')
+ 
     # a set of CFL files, including(kspace, trajectory, and density_compensation_weighting)
     args = parser.parse_args()
 
@@ -102,8 +90,6 @@ if __name__ == '__main__':
     gamma = args.gamma
     jsense = args.jsense
     res_scale = args.res_scale
-    scan_resolution = args.scan_res
-    recon_resolution = args.recon_res
     fname = args.fname
     lambda_lr = args.lambda_lr
     device = args.device
@@ -120,91 +106,7 @@ if __name__ == '__main__':
     vent_flag = args.vent_flag
 
     print('Reconstruction started...')
-    tic_total = time.perf_counter()
-
-    def find_sin_files(directory):
-        sin_files = []
-
-        # Walk through the directory and its subdirectories
-        for foldername, subfolders, filenames in os.walk(fname):
-            for filename in filenames:
-                # Check if the file has a .sin extension
-                
-                if filename.endswith(".sin"):
-                    # Get the full path of the file and add it to the list
-                    sin_files.append(os.path.join(fname, filename))
-                    
-                    for sin_file in sin_files:
-                        print("*.sin file located: ")
-                        print(sin_file)
-        return sin_files                        
-
-    try:
-        rls_file = find_sin_files(fname)[0]
-    except:
-        print("Could not locate *.sin file.")
-
-    if automate_FOV:
-        try:
-            rls = rp.PhilipsData(rls_file)
-            rls.readParamOnly = True
-            rls.raw_corr = False
-            rls.compute()
-            # scan_resolution = int(rls.header.get(
-            # 'sin').get('scan_resolutions')[0][0])
-            # scan_resolution = 300 # Adult
-            # scan_resolution = 200 # neonatal
-            print("Automated scan_resolution = " + str(scan_resolution))
-            slice_thickness = float(rls.header.get('sin').get('slice_thickness')[0][0])
-            field_of_view = int(slice_thickness * scan_resolution)
-            # field_of_view = 480 # Adult
-            # field_of_view = 200 # neonatal
-            TR = float(rls.header.get('sin').get('repetition_times')[0][0]) 
-            TE = float(rls.header.get('sin').get('echo_times')[0][0]) 
-            flip_angle_applied = float(rls.header.get('sin').get('flip_angles')[0][0]) 
-
-            print("WARNING: forcefully overwriting recon_resolution:")
-            recon_voxel_size = field_of_view // recon_resolution
-            # recon_voxel_size = 3 # mm
-            # recon_voxel_size = 1.2 # mm # neonatal
-            # recon_resolution = field_of_view / recon_voxel_size
-            print("recon_resolution set to: " + str(recon_voxel_size))
-
-            try:
-                print("Exporting important parameters...")
-
-                important_data = {"aqcuisition_matrix": scan_resolution,
-                                  "acquisition_voxel_size_mm": slice_thickness,
-                                  "field_of_view_mm": field_of_view,
-                                  "recon_matrix": recon_resolution,
-                                  "recon_voxel_size_mm": field_of_view/recon_resolution,
-                                  "repetition_time_ms": TR,
-                                  "echo_time_ms": TE,
-                                  "flip_angle_deg": flip_angle_applied}
-                csv_filename = fname + "results/imaging_parameters.csv"
-                with open(csv_filename, mode='w', newline='') as file:
-                    writer = csv.writer(file)
-    
-                    # Write the header
-                    writer.writerow(["Parameter", "Value"])
-
-                    # Write the data
-                    for key, value in important_data.items():
-                        writer.writerow([key, value])   
-
-                print("Important parameters exported successfully.")
-            except:
-                print("Could not export important parameters from *.sin file.")
-            del(rls)
-            print("Raw-Lab-Sin cleared from memory.")
-        except:
-            print("raw-lab-sin reading failed. User-defined scan resolution used instead.")
-
-
-    # OPTIONAL: override res_scale
-    res_scale = (recon_resolution/scan_resolution)+0.05
-    print("WARNING: res_scale has been overridden. res_scale == " + str(res_scale))
-        
+    tic_total = time.perf_counter()       
         
     # data loading
     data = np.load(os.path.join(fname, 'bksp.npy'))
@@ -220,7 +122,7 @@ if __name__ == '__main__':
     nf_arr = np.sqrt(np.sum(traj[0, 0, :, :]**2, axis=1))
     nf_e = np.sum(nf_arr < np.max(nf_arr)*nf_scale)
     # ANISOTROPIC
-    scale = (scan_resolution, scan_resolution, 80)  
+    scale = (fov_scale)  
     print("FORCEFULLY OVERWRITTEN FOVz")
     # scale = fov_scale
     traj[..., 0] = traj[..., 0]*scale[0]
@@ -237,8 +139,9 @@ if __name__ == '__main__':
     tshape = (int(np.max(traj[..., 0])-np.min(traj[..., 0])), int(np.max(
         traj[..., 1])-np.min(traj[..., 1])), int(np.max(traj[..., 2])-np.min(traj[..., 2])))
     # Or use manual input settings
-    tshape = (int(recon_resolution), int(
-        recon_resolution), 80)
+    tshape = (int(fov_scale[0] * res_scale),
+              int(fov_scale[1] * res_scale),
+              int(fov_scale[2] * res_scale))    
 
     print('Number of phases used in this reconstruction: ' + str(nphase))
     print('Number of coils: ' + str(nCoil))
@@ -255,42 +158,11 @@ if __name__ == '__main__':
               " called 'results' has been created.")
 
     # Save images as Nifti files
-    # Build an array using matrix multiplication
-    scaling_affine = np.array([[-1, 0, 0, 0],
-                               [0, -1, 0, 0],
-                               [0, 0, -1, 0],
-                               [0, 0, 0, 1]])
-
-    # Rotate gamma radians about axis i
-    cos_gamma = np.cos(0)
-    sin_gamma = np.sin(0)
-    rotation_affine_1 = np.array([[1, 0, 0, 0],
-                                  [0, cos_gamma, -sin_gamma,  0],
-                                  [0, sin_gamma, cos_gamma, 0],
-                                  [0, 0, 0, 1]])
-    cos_gamma = np.cos(0)
-    sin_gamma = np.sin(0)
-    rotation_affine_2 = np.array([[cos_gamma, 0, sin_gamma, 0],
-                                  [0, 1, 0, 0],
-                                  [-sin_gamma, 0, cos_gamma, 0],
-                                  [0, 0, 0, 1]])
-    cos_gamma = np.cos(0)
-    sin_gamma = np.sin(0)
-    rotation_affine_3 = np.array([[cos_gamma, -sin_gamma, 0, 0],
-                                  [sin_gamma, cos_gamma, 0, 0],
-                                  [0, 0, 1, 0],
-                                  [0, 0, 0, 1]])
-    rotation_affine = rotation_affine_1.dot(
-        rotation_affine_2.dot(rotation_affine_3))
-
-    # Apply translation
-    translation_affine = np.array([[1, 0, 0, 0],
-                                   [0, 1, 0, 0],
-                                   [0, 0, 1, 0],
-                                   [0, 0, 0, 1]])
-
-    # Multiply matrices together
-    aff = translation_affine.dot(rotation_affine.dot(scaling_affine))
+    # Custom affine
+    aff = np.array([[0, 0, -1, 0],
+                    [0, 1, 0, 0],
+                    [1, 0, 0, 0],
+                    [0, 0, 0, 1]])
     print("Affine transformation matrix used for saving this data: ")
     print(str(aff))
 
@@ -663,10 +535,7 @@ if __name__ == '__main__':
     except:
         print("Could not remove tmp image file.")
 
-    try: 
-        nifti_filename = str(method) + '_' + str(nphase) + '_bin_' + str(field_of_view) + 'mm_FOV_' + str(int(recon_voxel_size)) + 'mm_recon_resolution'
-    except:
-        nifti_filename = str(nphase) + '_bin_' + str(int(recon_resolution)) + '_recon_matrix_size'
+    nifti_filename = str(nphase) + '_bin_' + str(int(tshape[0])) + '_recon_matrix_size'
 
     ni_img = nib.Nifti1Image(abs(np.moveaxis(qt, 0, -1)), affine=aff)
     nib.save(ni_img, fname + '/results/img_mocolor_' + nifti_filename)
