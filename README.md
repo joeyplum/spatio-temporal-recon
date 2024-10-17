@@ -1,4 +1,4 @@
-## fb-recon
+## spatio-temporal-recon
 
 Reconstruction code for handling 4D MRI data.
 
