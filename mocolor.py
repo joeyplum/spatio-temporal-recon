@@ -11,7 +11,6 @@ import scipy.ndimage as ndimage_c
 import numpy as np
 
 import sys
-# sys.path.append("./sigpy_mc/")
 import sigpy_e.cfl as cfl
 import sigpy_e.ext as ext
 
@@ -36,8 +35,6 @@ if __name__ == '__main__':
                         help='use DCF on objective function, yes == 1')
     parser.add_argument('--binned_csm', type=float, default=1,
                         help='calculate a sensitivity map for each bin, yes == 1')
-    parser.add_argument('--jsense', type=float, default=2,
-                        help='jsense algorithm choice, default == 1, updated == 2')
     parser.add_argument('--gamma', type=float, default=0,
                         help='T2* weighting in Fourier encoding operator. Default == 0, full weighting == 1.')
 
@@ -93,7 +90,6 @@ if __name__ == '__main__':
     use_dcf = args.use_dcf
     binned_csm = args.binned_csm
     gamma = args.gamma
-    jsense = args.jsense
     res_scale = args.res_scale
     fname = args.fname
     lambda_lr = args.lambda_lr

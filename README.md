@@ -1,13 +1,19 @@
 ## spatio-temporal-recon
 
-Reconstruction code for handling 4D MRI data.
+Contact Joseph.Plummer@nih.gov/
 
-Created by Joseph Plummer. 
+Reconstruction code for handling 4D lung MRI data.
+
+Created by Joseph Plummer, Ph.D. This code is built upon the fantastic and shareable code by the MoCoLoR group (Fei Tan, Ph.D., et. al.):
+https://onlinelibrary.wiley.com/doi/10.1002/mrm.29703. 
+
+Please cite them and this paper if you use the code.
+
 
 Please post an issue on the repository
 page if there is a problem.
 
-When making edits, please make a new development branch.
+When making edits, please make a new development branch or make a fork.
 
 **Notice:**
 
@@ -16,21 +22,21 @@ This is a work in progress repository.
 
 ## Installation.
 
-Run the following commands in sequence to run the experiments (note that we use Mamba instead of Conda, as it is faster).
+Run the following commands in sequence to run the experiments (note that we use Mamba instead of Conda, as it is faster). 
 
 1. `mamba update -n base -c defaults mamba`
 2. `make mamba`
 3. `mamba activate spatio-temporal-recon`
 4. `make pip`
 
-## Data.
+If you prefer to use Conda, replace all instances of `mamba` inside the `Makefile` with `conda`, and run the commands above with `conda` instead.
 
-Contact Joseph.Plummer@nih.gov/
+## Data.
 
 Requirements:
 
-1. `bksp` = *.npy file with complex (binned) k-space data in form: [Nbins, Ncoils, Nexc, Nread]
-2. `bcoord` = *.npy file with real (binned) k-space coordinates in shape: [Nbins, Nexc, Nread, 3]
+1. `bksp` = *.npy file with complex (binned) k-space data in form: [Nbins, Ncoils, Nexc, Nread].
+2. `bcoord` = *.npy file with real (binned) k-space coordinates in shape: [Nbins, Nexc, Nread, 3] (note: scaled between +/- 0.5).
 
 **Troubleshooting**:
 
@@ -39,14 +45,7 @@ Requirements:
    - `cudnn`
    - `nccl`
    - `cupy`
-2. Additionally, if not using an NVIDIA GPU, please set `devnum = -1` for each
-   of the `*.py` files.
-
-
-**Troubleshooting**:
-
-1. If not using an NVIDIA GPU, please set `devnum = -1` for each
-   of the `.py` files.
+2. Additionally, if not using an NVIDIA GPU, please set `devnum = -1` inside the `*.py` files.
 
 ## Running the scripts. 
 
