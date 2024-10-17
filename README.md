@@ -27,6 +27,11 @@ Run the following commands in sequence to run the experiments (note that we use 
 
 Contact Joseph.Plummer@nih.gov/
 
+Requirements:
+
+1. `bksp` = *.npy file with complex (binned) k-space data in form: [Nbins, Ncoils, Nexc, Nread]
+2. `bcoord` = *.npy file with real (binned) k-space coordinates in shape: [Nbins, Nexc, Nread, 3]
+
 **Troubleshooting**:
 
 1. This repository was tested on an NVIDIA GPU. If running on a system without
