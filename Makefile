@@ -1,10 +1,10 @@
-.PHONY: conda pip clean
+.PHONY: mamba pip clean
 
-conda:
-	conda env create -f environment.yaml
+mamba:
+	mamba env create -f environment.yaml
 
 update:
-	conda env update --file environment.yaml --prune
+	mamba env update --file environment.yaml --prune
 
 pip:
 	pip install git+https://github.com/mikgroup/sigpy.git@main
@@ -12,9 +12,8 @@ pip:
 	pip install nibabel
 	pip install tk
 	pip install antspyx
-	git clone git@github.com:MattWill660/ReadPhilips.git
 
 clean:
 	rm -rf __pycache__
 	rm -rf .ipynb_checkpoints
-	conda env remove -n spatio-temporal-recon
+	mamba env remove -n spatio-temporal-recon

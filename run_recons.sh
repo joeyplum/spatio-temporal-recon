@@ -3,41 +3,20 @@
 # Replace 'python' with the appropriate command if 'python' doesn't work in your environment.
 PYTHON_EXECUTABLE=python
 
-# Function to run the binning_quantile.py script with given arguments
-run_binning_quantile() {
-    $PYTHON_EXECUTABLE binning_hilbert_dynamic.py --fname /storage/Joey/MoCoLoR/data/floret-803H-043/ --nbins 12 --plot 1 --nprojections 12000 --reorder 2 
-}
-
-
-# Function to run the recon_mocolor_npy.py script with given arguments
-run_recon_mocolor() {
-    $PYTHON_EXECUTABLE recon_lrmoco_vent_npy.py /storage/Joey/MoCoLoR/data/floret-803H-043/ --vent_flag 0 --rho 1 --method 'cg' --gamma 1 --jsense 2 --use_dcf 3 --lambda_lr 0.0075 --recon_res 117 --scan_res 220 --res_scale 0.75 --iner_iter 5 --outer_iter 3 --init_iter 10
-}
-
-# Function to run the recon_xdgrasp_npy.py script with given arguments
-run_recon_nufft() {
-    $PYTHON_EXECUTABLE recon_dcf_nufft_npy.py /storage/Joey/MoCoLoR/data/floret-803H-043/ --vent_flag 0 --recon_res 117 --scan_res 220
-}
-
-echo "Running binning_quantile.py ..."
-run_binning_quantile
-echo "Finished binning_quantile.py"
-
-echo "Running recon_dcf_nufft_npy.py ..."
-# run_recon_nufft
-echo "Finished recon_dcf_nufft_npy.py"
-
-echo "Running recon_mocolor_npy.py ..."
-run_recon_mocolor
-echo "Finished recon_mocolor_npy.py"
-
 # You need to make the shell script executable. Open your terminal and navigate to the directory containing the run_recons.sh file, then run the following command:
 # chmod +x run_recons.sh
 # Followed by:
 # ./run_recons.sh
 
+# Recon commands (copy in your requests here to run)
 
-
+# Function to run the recon_mocolor_npy.py script with given arguments
+run_recon_mocolor() {
+    $PYTHON_EXECUTABLE mocolor.py data/ --binned_csm 1 --vent_flag 0 --rho 1 --method 'cg' --gamma 1 --use_dcf 3 --lambda_lr 0.005 --fov_x 220 --fov_y 220 --fov_z 220 --res_scale 1.0 --crop_x 160 --crop_y 160 --crop_z 160 --device 0 
+}
+echo "Running recon_mocolor_npy.py ..."
+run_recon_mocolor
+echo "Finished recon_mocolor_npy.py"
 
 
 

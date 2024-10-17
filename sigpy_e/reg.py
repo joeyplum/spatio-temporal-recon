@@ -9,6 +9,7 @@ import scipy.ndimage as ndimage
 from scipy.io import loadmat
 from scipy import linalg
 import ants
+import matplotlib.pyplot as plt
 
 __all__ = ['interp_op', 'interp', 'ANTsReg', 'ANTsAff', 'interp_affine_op']
 
@@ -110,31 +111,134 @@ def ANTsReg4(Is, ref=0):
     np.save('./iM_field.npy', np.asarray(iM_fields))
 
 
-def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]):
+def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1], mask = None):
 
-    fixed = ants.from_numpy(Im)
-    moving = ants.from_numpy(If)
+    fixed = ants.from_numpy(If) # TODO: check, are these the wrong way round??
+    moving = ants.from_numpy(Im)
 
     tmp_dir = 'tmp{}_'.format(np.random.randint(0, 1e4))
 
-    reg_dict = ants.registration(fixed, moving, type_of_transform='SyNOnly',
-                                 syn_metric='demons', syn_sampling=4,
-                                 grad_step=0.1, flow_sigma=5, total_sigma=3,
-                                 reg_iterations=(40, 20, 10),
-                                 verbose=False, outprefix=tmp_dir,
-                                 w='[0.1,1]')
+    # default (works really well)
+    # registration_params =   {'type_of_transform':'SyNOnly',
+    #                         'syn_metric':'demons', 
+    #                         'syn_sampling':2,
+    #                         'grad_step':0.2,
+    #                         'flow_sigma':3, 
+    #                         'total_sigma':2,
+    #                         'reg_iterations':(60, 40, 20),
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # Finer (might take longer and struggle with serious aliasing artifacts)
+    # registration_params =   {'type_of_transform':'SyNCC',
+    #                         'grad_step':0.2, # overwritten as 0.15 in SyNCC
+    #                         'flow_sigma':2, # overwritten as 3 in SyNCC
+    #                         'total_sigma':2, # overwritten as 0 in SyNCC
+    #                         # 'reg_iterations':(60, 40, 20),
+    #                         'reg_iterations':(40, 20, 0), # Not used in SyNCC
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # SyNCC without the rigid and affine transformations
+    registration_params = {
+                            'type_of_transform': 'SyNOnly',
+                            'syn_metric': 'CC',
+                            'syn_sampling': 2,
+                            'grad_step': 0.15,
+                            'flow_sigma': 1,
+                            'total_sigma': 0.5,
+                            'reg_iterations': (2100, 1200, 1200, 20),
+                            'smoothingsigmas': '3x2x1x0',
+                            'shrinkfactors': '4x3x2x1',
+                            'verbose': False
+                        }
+
+    # Assuming images are already aligned, and the only difference is a non-linear deformation
+    # registration_params =   {'type_of_transform':'SyNOnly',
+    #                          'syn_metric':'CC',
+    #                          'syn_sampling': 4, # Higher takes longer, but better registrations
+    #                         'grad_step':0.1,
+    #                         'flow_sigma':1, 
+    #                         'total_sigma':1,
+    #                         'reg_iterations':(500, 100, 10),
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # Rigid then affine, followed by CC (copied from GitHub https://gist.github.com/jmtyszka/6bc39a85d88876c0b153c63521f0e47b)
+    # registration_params =   {'type_of_transform':'SyNRA',
+    #                           'syn_metric':'CC',
+    #                           'syn_sampling': 4,
+    #                         'grad_step':0.2,
+    #                         'flow_sigma':1, 
+    #                         'total_sigma':1,
+    #                         'reg_iterations':(1000, 1000, 50),
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # custom
+    # registration_params = {
+    #         'type_of_transform': 'SyNAggro',
+    #         'reg_iterations': (70, 50, 40),  # Increased iterations
+    #         'syn_metric': 'CC',  # Cross-correlation metric
+    #         'syn_metric_weight': 1,
+    #         'syn_metric_radius': 4,
+    #         'syn_sampling': 4,  # Increased sampling rate
+    #         'grad_step': 1.0,  # Increased gradient step
+    #         'flow_sigma': 1.5,
+    #         'total_sigma': 0,
+    #         # 'verbose': True,
+    #         'winsorize_lower_quantile': 0.005,  # Winsorize lower quantile
+    #         'winsorize_upper_quantile': 0.995,  # Winsorize upper quantile
+    #         'histogram_matching': True,  # Histogram matching
+    #         'regularization': 'bspline',  # B-spline regularization
+    #         'regularization_param': (4, 40, 0.2),  # B-spline parameters
+    #         'shrink_factors': [6, 4, 2, 1],  # Shrink factors
+    #         'smoothing_sigmas': [3, 2, 1, 0],  # Smoothing sigmas
+    #         'synaggro_param': (2, 0.8, 1)  # SyNAggro parameters
+    #     }
+    
+    # TODO: try registering the inverse or log scaled images
+    if mask is not None:
+        mask = ants.from_numpy(mask)
+        reg_dict = ants.registration(fixed, moving, mask=mask, moving_mask=mask, outprefix=tmp_dir, **registration_params)   
+        print("Warning: only registering square volume inside of cropped region.")
+    else:  
+        reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)   
+
+
     # -s -f -l not matched
+    # Original (i.e. if If = Im, and Im = If) -- this was how the original code was
     M_field = nibabel.load(reg_dict['fwdtransforms'][0])
     iM_field = nibabel.load(reg_dict['invtransforms'][-1])
+    # Testing? (i.e. if If = If, and Im = Im)
+    # M_field = nibabel.load(reg_dict['invtransforms'][-1])
+    # iM_field = nibabel.load(reg_dict['fwdtransforms'][0])
 
-    Mt = -M_field.get_fdata()
-    iMt = -iM_field.get_fdata()
-    Mt[..., :2] = -Mt[..., :2]
-    iMt[..., :2] = -iMt[..., :2]
+    # TODO: is this required? Flip the z direction (answer: loo at motion corrected images to test... I'm leaning towards no)
+    # Mt = -M_field.get_fdata()
+    # print(f'Shape of Mt field: {Mt.shape}')
+    # iMt = -iM_field.get_fdata()
+    # Mt[..., :2] = -Mt[..., :2]
+    # iMt[..., :2] = -iMt[..., :2]
+    
+    Mt = M_field.get_fdata()
+    print(f'Shape of Mt field: {Mt.shape}')
+    iMt = iM_field.get_fdata()
+
+    # Squeeze and rescale
     Mt = np.squeeze(Mt)
+    print(f'Shape of Mt field after squeezing: {Mt.shape}')
     iMt = np.squeeze(iMt)
-    Mt = M_scale(Mt, If.shape, 1/reg_level[-1])
-    iMt = M_scale(iMt, If.shape, 1/reg_level[-1])
+    # Mt = M_scale(Mt, If.shape, 1/reg_level[-1])
+    # iMt = M_scale(iMt, If.shape, 1/reg_level[-1])
+    
+    # Instead, do not rescale by 0.5 (as Mocolor does) # TODO: test if this helps!! might be slower
+    Mt = M_scale(Mt, If.shape, 1)
+    iMt = M_scale(iMt, If.shape, 1)
 
     fileList = glob.glob(tmp_dir + '*')
     # Iterate over the list of filepaths & remove each file.
@@ -151,33 +255,73 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
 
 def ANTsJac(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]):
     # to antsimage
-    fixed = ants.from_numpy(Im)
-    moving = ants.from_numpy(If)
+    fixed = ants.from_numpy(If)
+    moving = ants.from_numpy(Im)
 
     tmp_dir = 'tmp{}_'.format(np.random.randint(0, 1e4))
-    # SyN registration
-    reg_dict = ants.registration(fixed, moving, type_of_transform='SyNOnly',
-                                 syn_metric='demons', syn_sampling=4,
-                                 grad_step=0.1, flow_sigma=5, total_sigma=3,
-                                 reg_iterations=(40, 20, 10),
-                                 verbose=False, outprefix=tmp_dir,
-                                 w='[0.1,1]')
+
+    # default
+    # registration_params =   {'type_of_transform':'SyNOnly',
+    #                         'syn_metric':'demons', 
+    #                         'syn_sampling':4,
+    #                         'grad_step':0.1,
+    #                         'flow_sigma':5, 
+    #                         'total_sigma':3,
+    #                         'reg_iterations':(40, 20, 10),
+    #                         'verbose':False, 
+    #                         'outprefix':tmp_dir,
+    #                         'w':[0.1,1]
+    #                              }
+
+    # custom
+    registration_params = {
+            'type_of_transform': 'SyNAggro',
+            'reg_iterations': (70, 50, 70),  # Increased iterations
+            'syn_metric': 'CC',  # Cross-correlation metric
+            'syn_metric_weight': 1,
+            'syn_metric_radius': 4,
+            'syn_sampling': 4,  # Increased sampling rate
+            'grad_step': 1.0,  # Increased gradient step
+            'flow_sigma': 1.5,
+            'total_sigma': 0,
+            # 'verbose': True,
+            'winsorize_lower_quantile': 0.005,  # Winsorize lower quantile
+            'winsorize_upper_quantile': 0.995,  # Winsorize upper quantile
+            'histogram_matching': True,  # Histogram matching
+            'regularization': 'bspline',  # B-spline regularization
+            'regularization_param': (4, 40, 0.2),  # B-spline parameters
+            'shrink_factors': [6, 4, 2, 1],  # Shrink factors
+            'smoothing_sigmas': [3, 2, 1, 0],  # Smoothing sigmas
+            'synaggro_param': (2, 0.8, 1)  # SyNAggro parameters
+        }
+    
+    # TODO: try registering the inverse or log scaled images
+    # fixed_i = ants.from_numpy(Im)
+    # moving_i = ants.from_numpy(If)
+    # reg_dict = ants.registration(fixed_i, moving_i, outprefix=tmp_dir, **registration_params)
+    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)
+
+
 
     # Jacobian
+    # TODO: try registering the inverse or log scaled images
     jac_ants = ants.create_jacobian_determinant_image(
         fixed, reg_dict['invtransforms'][-1])
+    # jac_ants = ants.create_jacobian_determinant_image(
+    #     fixed_i, reg_dict['invtransforms'][-1])
     jac = jac_ants.numpy()
 
     # calculate specific ventilation
-    reg_ants = reg_dict['warpedfixout']
+    reg_ants = reg_dict['warpedmovout'] # Caution, change this to 'warpedfixout' if switching Im and If
     reg = reg_ants.numpy()
 
-    reg = ndimage.filters.gaussian_filter(
-        reg, (3, 3, 3), mode='reflect', truncate=1)
-    If = ndimage.filters.gaussian_filter(
-        If, (3, 3, 3), mode='reflect', truncate=1)
+    # TODO: optimize this if resolution of sv/jacs is too high
+    # reg = ndimage.filters.gaussian_filter(
+    #     reg, (2, 2, 2), mode='reflect', truncate=1)
+    # If = ndimage.filters.gaussian_filter(
+    #     If, (2, 2, 2), mode='reflect', truncate=1)
 
-    sv = (If - reg) / (reg + np.finfo(float).eps)
+    sv = (If - reg) / (reg + np.finfo(float).eps) # Note, reg and If were switched from the original code as If and Im were switched as function inputs
 
     # Get a list of all the file paths that ends with .txt from in specified directory
     fileList = glob.glob(tmp_dir + '*')

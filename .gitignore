@@ -1,13 +1,6 @@
 # Data
 /data/
 
-# readphilips folder
-/readphilips/
-/ReadPhilips/
-
-# AI segmentation
-/segmentation/
-
 # Temp files
 *.mat
 *.nii.gz
