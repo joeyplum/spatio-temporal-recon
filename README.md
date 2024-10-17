@@ -1,4 +1,4 @@
-## spatio-temporal-recon
+## fb-recon
 
 Reconstruction code for handling 4D MRI data.
 
@@ -13,25 +13,19 @@ When making edits, please make a new development branch.
 
 This is a work in progress repository. 
 
-Contact me for collaborations. 
-
 
 ## Installation.
 
-Run the following commands in sequence to run the experiments.
+Run the following commands in sequence to run the experiments (note that we use Mamba instead of Conda, as it is faster).
 
-1. `conda update -n base -c defaults conda`
-2. `make conda`
-3. `conda activate spatio-temporal-recon`
+1. `mamba update -n base -c defaults mamba`
+2. `make mamba`
+3. `mamba activate fb-recon`
 4. `make pip`
-
-## Additional libraries.
-
-Contact Joseph.Plummer@cchmc.org for access to additional libraries, including `readphilips` and `segmentation`.
 
 ## Data.
 
-Contact Joseph.Plummer@cchmc.org for sample data. It has not been approved for sharing publicly yet.
+Contact Joseph.Plummer@nih.gov/
 
 **Troubleshooting**:
 
@@ -58,7 +52,7 @@ I run the shell script `run_recons.sh` to run the binning and reconstruction alg
 
 To uninstall, run the following commands:
 
-1. `conda activate`
+1. `mamba activate`
 2. `make clean`
 
 

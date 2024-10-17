@@ -111,25 +111,74 @@ def ANTsReg4(Is, ref=0):
     np.save('./iM_field.npy', np.asarray(iM_fields))
 
 
-def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]):
+def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1], mask = None):
 
     fixed = ants.from_numpy(If) # TODO: check, are these the wrong way round??
     moving = ants.from_numpy(Im)
 
     tmp_dir = 'tmp{}_'.format(np.random.randint(0, 1e4))
 
-    # default
-    registration_params =   {'type_of_transform':'SyNOnly',
-                            'syn_metric':'demons', 
-                            'syn_sampling':4,
-                            'grad_step':0.1,
-                            'flow_sigma':5, 
-                            'total_sigma':3,
-                            'reg_iterations':(40, 20, 10),
-                            'verbose':False, 
-                            'w':[0.1,1]
-                                 }
+    # default (works really well)
+    # registration_params =   {'type_of_transform':'SyNOnly',
+    #                         'syn_metric':'demons', 
+    #                         'syn_sampling':2,
+    #                         'grad_step':0.2,
+    #                         'flow_sigma':3, 
+    #                         'total_sigma':2,
+    #                         'reg_iterations':(60, 40, 20),
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # Finer (might take longer and struggle with serious aliasing artifacts)
+    # registration_params =   {'type_of_transform':'SyNCC',
+    #                         'grad_step':0.2, # overwritten as 0.15 in SyNCC
+    #                         'flow_sigma':2, # overwritten as 3 in SyNCC
+    #                         'total_sigma':2, # overwritten as 0 in SyNCC
+    #                         # 'reg_iterations':(60, 40, 20),
+    #                         'reg_iterations':(40, 20, 0), # Not used in SyNCC
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # SyNCC without the rigid and affine transformations
+    registration_params = {
+                            'type_of_transform': 'SyNOnly',
+                            'syn_metric': 'CC',
+                            'syn_sampling': 2,
+                            'grad_step': 0.15,
+                            'flow_sigma': 1,
+                            'total_sigma': 0.5,
+                            'reg_iterations': (2100, 1200, 1200, 20),
+                            'smoothingsigmas': '3x2x1x0',
+                            'shrinkfactors': '4x3x2x1',
+                            'verbose': False
+                        }
 
+    # Assuming images are already aligned, and the only difference is a non-linear deformation
+    # registration_params =   {'type_of_transform':'SyNOnly',
+    #                          'syn_metric':'CC',
+    #                          'syn_sampling': 4, # Higher takes longer, but better registrations
+    #                         'grad_step':0.1,
+    #                         'flow_sigma':1, 
+    #                         'total_sigma':1,
+    #                         'reg_iterations':(500, 100, 10),
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
+    # Rigid then affine, followed by CC (copied from GitHub https://gist.github.com/jmtyszka/6bc39a85d88876c0b153c63521f0e47b)
+    # registration_params =   {'type_of_transform':'SyNRA',
+    #                           'syn_metric':'CC',
+    #                           'syn_sampling': 4,
+    #                         'grad_step':0.2,
+    #                         'flow_sigma':1, 
+    #                         'total_sigma':1,
+    #                         'reg_iterations':(1000, 1000, 50),
+    #                         'verbose':False, 
+    #                         'w':[0.1,1]
+    #                              }
+    
     # custom
     # registration_params = {
     #         'type_of_transform': 'SyNAggro',
@@ -153,7 +202,13 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
     #     }
     
     # TODO: try registering the inverse or log scaled images
-    reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)     
+    if mask is not None:
+        mask = ants.from_numpy(mask)
+        reg_dict = ants.registration(fixed, moving, mask=mask, moving_mask=mask, outprefix=tmp_dir, **registration_params)   
+        print("Warning: only registering square volume inside of cropped region.")
+    else:  
+        reg_dict = ants.registration(fixed, moving, outprefix=tmp_dir, **registration_params)   
+
 
     # -s -f -l not matched
     # Original (i.e. if If = Im, and Im = If) -- this was how the original code was
@@ -163,19 +218,27 @@ def ANTsReg(If, Im, vox_res=[1, 1, 1], reg_level=[8, 4, 2], gauss_filt=[2, 2, 1]
     # M_field = nibabel.load(reg_dict['invtransforms'][-1])
     # iM_field = nibabel.load(reg_dict['fwdtransforms'][0])
 
-    # Flip the z direction (this is required, and can be verified by matching with Optical Flow)
-    Mt = -M_field.get_fdata()
+    # TODO: is this required? Flip the z direction (answer: loo at motion corrected images to test... I'm leaning towards no)
+    # Mt = -M_field.get_fdata()
+    # print(f'Shape of Mt field: {Mt.shape}')
+    # iMt = -iM_field.get_fdata()
+    # Mt[..., :2] = -Mt[..., :2]
+    # iMt[..., :2] = -iMt[..., :2]
+    
+    Mt = M_field.get_fdata()
     print(f'Shape of Mt field: {Mt.shape}')
-    iMt = -iM_field.get_fdata()
-    Mt[..., :2] = -Mt[..., :2]
-    iMt[..., :2] = -iMt[..., :2]
+    iMt = iM_field.get_fdata()
 
     # Squeeze and rescale
     Mt = np.squeeze(Mt)
     print(f'Shape of Mt field after squeezing: {Mt.shape}')
     iMt = np.squeeze(iMt)
-    Mt = M_scale(Mt, If.shape, 1/reg_level[-1])
-    iMt = M_scale(iMt, If.shape, 1/reg_level[-1])
+    # Mt = M_scale(Mt, If.shape, 1/reg_level[-1])
+    # iMt = M_scale(iMt, If.shape, 1/reg_level[-1])
+    
+    # Instead, do not rescale by 0.5 (as Mocolor does) # TODO: test if this helps!! might be slower
+    Mt = M_scale(Mt, If.shape, 1)
+    iMt = M_scale(iMt, If.shape, 1)
 
     fileList = glob.glob(tmp_dir + '*')
     # Iterate over the list of filepaths & remove each file.

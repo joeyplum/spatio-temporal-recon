@@ -23,6 +23,23 @@ def jsens_calib(ksp, coord, dcf, ishape, device=sp.Device(-1),
     return mps
 
 
+def espirit_calib(ksp, coord, dcf, ishape, device = sp.Device(-1)):
+    img_s = nft.nufft_adj([ksp],[coord],[dcf],device = device,ishape = ishape,id_channel =True)
+    # print(len(img_s))
+    # import sigpy.plot as pl
+    # pl.ImagePlot(img_s[0], x=1, y=2, z=0,
+    #                         title="img_s")
+    ksp = sp.fft(input=np.asarray(img_s[0]),axes=(1,2,3))
+    mps = mr.app.EspiritCalib(ksp,
+                             kernel_width=6,
+                             calib_width=24,
+                             device=device,
+                             crop=0.75,
+                             output_eigenvalue=False,
+                             max_iter=100).run()
+    return mps
+
+
 def FD(ishape, axes=None):
     """Linear operator that computes finite difference gradient.
     Args:

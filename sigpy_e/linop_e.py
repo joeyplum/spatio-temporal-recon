@@ -43,6 +43,7 @@ def Diags(L_Linop, oshape, ishape):
 
 
 def DLD(Linop, device=sp.Device(-1)):
+    # Move from a device, perform Linop L, move back to original device
     B1 = sp.linop.ToDevice(Linop.ishape, idevice=sp.Device(-1), odevice=device)
     B2 = sp.linop.ToDevice(Linop.oshape, idevice=sp.Device(-1), odevice=device)
     Linop = B2.H*Linop*B1
@@ -53,7 +54,9 @@ def NFTs(ishape, coord, device=sp.Device(-1)):
     n_Channel = ishape[0]
     oshape = list((n_Channel,)) + list(coord.shape[:-1])
 
-    NFT = sp.linop.NUFFT(ishape[1:], coord=coord, toeplitz=False)
+    # NFT = sp.linop.NUFFT(ishape[1:], coord=coord, oversamp=1.25, toeplitz=False)
+    NFT = sp.linop.NUFFT(ishape[1:], coord=coord, oversamp=2.0, toeplitz=False)
+
     NFTs = Diags([DLD(NFT, device=device)
                  for i in range(n_Channel)], oshape, ishape)
 
