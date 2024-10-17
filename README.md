@@ -20,7 +20,7 @@ Run the following commands in sequence to run the experiments (note that we use 
 
 1. `mamba update -n base -c defaults mamba`
 2. `make mamba`
-3. `mamba activate fb-recon`
+3. `mamba activate spatio-temporal-recon`
 4. `make pip`
 
 ## Data.
