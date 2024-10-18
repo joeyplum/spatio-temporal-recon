@@ -1,6 +1,7 @@
 name: spatio-temporal-recon
 channels:
 - conda-forge
+- nvidia/label/cuda-11.4.0
 dependencies:
 - python>=3.9
 - numpy==1.26.4
@@ -13,6 +14,7 @@ dependencies:
 - tqdm
 - numba
 - pywavelets
+- cuda-toolkit
 - cupy # Comment for no GPU
 - nccl # Comment for no GPU
 - cudnn # Comment for no GPU
