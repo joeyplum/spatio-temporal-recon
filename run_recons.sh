@@ -12,7 +12,7 @@ PYTHON_EXECUTABLE=python
 
 # Function to run the recon_mocolor_npy.py script with given arguments
 run_recon_mocolor() {
-    $PYTHON_EXECUTABLE mocolor.py data/ --binned_csm 1 --vent_flag 0 --rho 1 --method 'cg' --gamma 1 --use_dcf 3 --lambda_lr 0.005 --fov_x 220 --fov_y 220 --fov_z 220 --res_scale 1.0 --crop_x 160 --crop_y 160 --crop_z 160 --device 0 
+    $PYTHON_EXECUTABLE mocolor.py data/ --binned_csm 1 --vent_flag 1 --rho 1 --method 'cg' --gamma 1 --use_dcf 3 --lambda_lr 0.005 --fov_x 220 --fov_y 220 --fov_z 80 --res_scale 1.0 --crop_x 160 --crop_y 160 --crop_z 80 --device 0 
 }
 echo "Running recon_mocolor_npy.py ..."
 run_recon_mocolor
