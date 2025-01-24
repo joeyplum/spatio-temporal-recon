@@ -62,4 +62,4 @@ To uninstall, run the following commands:
 
 ## DOI.
 
-Manuscript writing in progress.
+[https://doi.org/10.1002/mrm.30416](https://doi.org/10.1002/mrm.30416)
